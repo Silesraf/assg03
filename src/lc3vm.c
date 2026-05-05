@@ -45,7 +45,10 @@ uint16_t PC_START = 0x3000;
  *   later as something other than an unsigned integer, but this function
  *   simply reads and returns the 16 bits stored at the indicated address.
  */
-// put your implememtation of mem_read() here below it documentation
+uint16_t mem_read(uint16_t address)
+{
+  return mem[address];
+}
 
 /** @brief memory write, transfer to memory
  *
@@ -62,7 +65,10 @@ uint16_t PC_START = 0x3000;
  *   stored where requested, it could actually be a signed number, or an ascii
  *   character, or some other type of data.
  */
-// put your implememtation of mem_write() here below it documentation
+void mem_write(uint16_t address, uint16_t value)
+{
+  mem[address] = value;
+}
 
 /** @brief sign extend bits
  *
@@ -87,7 +93,17 @@ uint16_t PC_START = 0x3000;
  *    bit positions, thus converting this to a full 16-bit twos-complement sigend
  *    value.
  */
-// put your implememtation of sign_extend() here below it documentation
+uint16_t sign_extend(uint16_t bits, int size)
+{
+  uint16_t mask = (uint16_t)((1u << size) - 1u);
+  bits &= mask;
+  uint16_t sign = 1u << (size - 1);
+  if (bits & sign)
+  {
+    return bits | (uint16_t)(0xFFFFu << size);
+  }
+  return bits & (uint16_t)(0xFFFFu >> (16 - size));
+}
 
 /** @brief update condition register flags
  *
@@ -102,7 +118,22 @@ uint16_t PC_START = 0x3000;
  *   was just modified by an operation and needs to have the condition code flags
  *   updated as a side effect of the operation just performed.
  */
-// put your implememtation of update_flags() here below it documentation
+void update_flags(enum registr modified_register)
+{
+  uint16_t value = reg[modified_register];
+  if (value == 0)
+  {
+    reg[RCND] = FZ;
+  }
+  else if (value & 0x8000u)
+  {
+    reg[RCND] = FN;
+  }
+  else
+  {
+    reg[RCND] = FP;
+  }
+}
 
 /** @brief add operation
  *
@@ -129,7 +160,20 @@ uint16_t PC_START = 0x3000;
  *   second source register or the immediate value encoded in the
  *   instruction.
  */
-// put your implememtation of add() here below it documentation
+void add(uint16_t i)
+{
+  uint16_t result = reg[SR1(i)];
+  if (FIMM(i))
+  {
+    result += SEXTIMM(i);
+  }
+  else
+  {
+    result += reg[SR2(i)];
+  }
+  reg[DR(i)] = result;
+  update_flags((enum registr)DR(i));
+}
 
 /** @brief logical AND operation
  *
@@ -150,7 +194,20 @@ uint16_t PC_START = 0x3000;
  *   second source register or the immediate value encoded in the
  *   instruction.
  */
-// put your implememtation of andlc() here below it documentation
+void andlc(uint16_t i)
+{
+  uint16_t result = reg[SR1(i)];
+  if (FIMM(i))
+  {
+    result &= SEXTIMM(i);
+  }
+  else
+  {
+    result &= reg[SR2(i)];
+  }
+  reg[DR(i)] = result;
+  update_flags((enum registr)DR(i));
+}
 
 /** @brief logical NOT operation
  *
@@ -164,7 +221,11 @@ uint16_t PC_START = 0x3000;
  *   second source register or the immediate value encoded in the
  *   instruction.
  */
-// put your implememtation of notlc() here below it documentation
+void notlc(uint16_t i)
+{
+  reg[DR(i)] = ~reg[SR1(i)];
+  update_flags((enum registr)DR(i));
+}
 
 /** @brief load RPC + offset
  *
@@ -182,7 +243,12 @@ uint16_t PC_START = 0x3000;
  *   destination and source register operands, and to extract the
  *   second source register or the immediate value encoded in the
  */
-// put your implememtation of ld() here below it documentation
+void ld(uint16_t i)
+{
+  uint16_t addr = reg[RPC] + PCOFF9(i);
+  reg[DR(i)] = mem_read(addr);
+  update_flags((enum registr)DR(i));
+}
 
 /** @brief load indirect
  *
@@ -199,7 +265,13 @@ uint16_t PC_START = 0x3000;
  *   destination and source register operands, and to extract the
  *   second source register or the immediate value encoded in the
  */
-// put your implememtation of ldi() here below it documentation
+void ldi(uint16_t i)
+{
+  uint16_t addr = reg[RPC] + PCOFF9(i);
+  uint16_t indirect = mem_read(addr);
+  reg[DR(i)] = mem_read(indirect);
+  update_flags((enum registr)DR(i));
+}
 
 /** @brief load base + relative offset
  * 
@@ -215,7 +287,12 @@ uint16_t PC_START = 0x3000;
  *   destination and source register operands, and to extract the
  *   second source register or the immediate value encoded in the
  */
-// put your implememtation of ldr() here below it documentation
+void ldr(uint16_t i)
+{
+  uint16_t addr = reg[SR1(i)] + OFF6(i);
+  reg[DR(i)] = mem_read(addr);
+  update_flags((enum registr)DR(i));
+}
 
 /** @brief load effective address
  *
@@ -232,7 +309,10 @@ uint16_t PC_START = 0x3000;
  *   destination and source register operands, and to extract the
  *   second source register or the immediate value encoded in the
  */
-// put your implememtation of lea() here below it documentation
+void lea(uint16_t i)
+{
+  reg[DR(i)] = reg[RPC] + PCOFF9(i);
+}
 
 /** @brief store to PC + offset
  *
@@ -247,7 +327,11 @@ uint16_t PC_START = 0x3000;
  *   destination and source register operands, and to extract the
  *   second source register or the immediate value encoded in the
  */
-// put your implememtation of st() here below it documentation
+void st(uint16_t i)
+{
+  uint16_t addr = reg[RPC] + PCOFF9(i);
+  mem_write(addr, reg[DR(i)]);
+}
 
 /** @brief store indirect
  *
@@ -263,7 +347,12 @@ uint16_t PC_START = 0x3000;
  *   destination and source register operands, and to extract the
  *   second source register or the immediate value encoded in the
  */
-// put your implememtation of sti() here below it documentation
+void sti(uint16_t i)
+{
+  uint16_t addr = reg[RPC] + PCOFF9(i);
+  uint16_t indirect = mem_read(addr);
+  mem_write(indirect, reg[DR(i)]);
+}
 
 /** @brief store offset relative to base address
  *
@@ -278,7 +367,11 @@ uint16_t PC_START = 0x3000;
  *   destination and source register operands, and to extract the
  *   second source register or the immediate value encoded in the
  */
-// put your implememtation of str() here below it documentation
+void str(uint16_t i)
+{
+  uint16_t addr = reg[SR1(i)] + OFF6(i);
+  mem_write(addr, reg[DR(i)]);
+}
 
 /** @brief jump unconditionally
  *
@@ -291,7 +384,10 @@ uint16_t PC_START = 0x3000;
  *   destination and source register operands, and to extract the
  *   second source register or the immediate value encoded in the
  */
-// put your implememtation of jmp() here below its documentation
+void jmp(uint16_t i)
+{
+  reg[RPC] = reg[SR1(i)];
+}
 
 /** @brief conditional branch
  *
@@ -309,7 +405,13 @@ uint16_t PC_START = 0x3000;
  *   destination and source register operands, and to extract the
  *   second source register or the immediate value encoded in the
  */
-// put your implememtation of br() here below its documentation
+void br(uint16_t i)
+{
+  if (reg[RCND] & DR(i))
+  {
+    reg[RPC] += PCOFF9(i);
+  }
+}
 
 /** @brief jump to/from subtroutine
  *
@@ -322,7 +424,19 @@ uint16_t PC_START = 0x3000;
  *   destination and source register operands, and to extract the
  *   second source register or the immediate value encoded in the
  */
-// put your implememtation of jsr() here below its documentation
+void jsr(uint16_t i)
+{
+  uint16_t next_pc = reg[RPC];
+  reg[R7] = next_pc;
+  if (FL(i) == 0)
+  {
+    reg[RPC] = reg[SR1(i)];
+  }
+  else
+  {
+    reg[RPC] = next_pc + PCOFF11(i);
+  }
+}
 
 /** @brief return from interrupt
  *
@@ -488,7 +602,24 @@ void trap(uint16_t i)
  */
 // you need to declare the operator execution lookup table here.  This will be an
 // array of function pointers to your opcode microcode execution functions.
-
+op_ex_f op_ex[NUMOPS] = {
+  br,
+  add,
+  ld,
+  st,
+  jsr,
+  andlc,
+  ldr,
+  str,
+  rti,
+  notlc,
+  ldi,
+  sti,
+  jmp,
+  res,
+  lea,
+  trap
+};
 
 /** @brief start/run LC-3 simulator
  *
@@ -505,7 +636,18 @@ void trap(uint16_t i)
  *   a 16-bit (signed) offset from this location and start there instead
  *   in this routine.
  */
-// put your implememtation of start() here below its documentation
+void start(uint16_t offset)
+{
+  running = true;
+  reg[RPC] = PC_START + offset;
+
+  while (running)
+  {
+    uint16_t instr = mem_read(reg[RPC]);
+    reg[RPC]++;
+    op_ex[OPC(instr)](instr);
+  }
+}
 
 /** @brief load an LC-3 machine instruction image
  *
